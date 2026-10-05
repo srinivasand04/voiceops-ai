@@ -13,6 +13,28 @@ jobs:
     name: Backend CI
     runs-on: ubuntu-latest
 
+    env:
+      POSTGRES_DB: voiceops
+      POSTGRES_USER: voiceops_user
+      POSTGRES_PASSWORD: voiceops_password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: voiceops
+          POSTGRES_USER: voiceops_user
+          POSTGRES_PASSWORD: voiceops_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U voiceops_user -d voiceops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,12 +53,17 @@ jobs:
       - name: Check Python syntax
         working-directory: backend
         run: |
-          python -m compileall -q app
+          python -m compileall -q app tests
 
       - name: Check Python dependencies
         working-directory: backend
         run: |
           pip check
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          pytest -q
 
   frontend:
     name: Frontend CI
