@@ -6,6 +6,24 @@ All notable changes to VoiceOps AI are documented here.
 
 
 
+## [v0.7.0] - Analysis, dashboard and login
+
+- v0.3: per-turn and per-speaker sentiment (VADER), agent/customer role detection, customer sentiment trend
+- v0.4: intent detection, entities (order IDs including misheard "over D1045", products, durations, organizations), keywords
+- v0.5: call summary and action items (Claude when `ANTHROPIC_API_KEY` is set, rule-based otherwise)
+- v0.6: React dashboard (stats, call reasons, sentiment, keywords, calls table) and call detail page (summary, sentiment timeline, chat-style transcript)
+- v0.7: user accounts with JWT login; the first account is the admin; `/api/calls*` and `/api/stats` require login; `DELETE /api/calls` is admin only
+- New endpoints: `/api/auth/*`, `GET /api/calls`, `/api/calls/{id}`, `/analysis`, `POST /analyze`, `/api/stats`
+- Upload errors now return HTTP 400; `DELETE /api/calls` also removes transcripts and analyses
+- Known limits: lexicon sentiment scores polite phrases like "sorry to hear that" as positive; processing runs inside the request (1-2 minutes on CPU); the Docker backend image lacks torch/pyannote
+
+## [v0.2.0] - Speaker-attributed transcripts
+
+- Pipeline services: Faster-Whisper, pyannote diarization, speaker/segment merge
+- `POST /api/calls/{id}/process` and `GET /api/calls/{id}/transcript`
+- `backend/run_pipeline.py` analyzes an audio file without the database
+- Audio decoded with PyAV, so torchcodec / system FFmpeg DLLs are not needed
+
 \## \[v0.1.0] - ASR + PostgreSQL Baseline
 
 

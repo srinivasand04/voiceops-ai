@@ -1,89 +1,56 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from 'react'
+import { api, ApiError, getToken, setToken, type User } from './api'
+import CallDetail from './CallDetail'
+import Dashboard from './Dashboard'
+import Login from './Login'
+import './App.css'
 
 function App() {
-  const [file, setFile] = useState<File | null>(null);
-  const [message, setMessage] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [user, setUser] = useState<User | null>(null)
+  const [checking, setChecking] = useState(!!getToken())
+  const [openCall, setOpenCall] = useState<number | null>(null)
 
-  const handleFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const selectedFile = event.target.files?.[0];
+  useEffect(() => {
+    if (!getToken()) return
 
-    if (!selectedFile) {
-      setFile(null);
-      return;
-    }
+    api<User>('/api/auth/me')
+      .then(setUser)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) setToken(null)
+      })
+      .finally(() => setChecking(false))
+  }, [])
 
-    setFile(selectedFile);
-    setMessage("");
-  };
+  const logout = () => {
+    setToken(null)
+    setUser(null)
+    setOpenCall(null)
+  }
 
-  const uploadAudio = async () => {
-    if (!file) {
-      setMessage("Please select an audio file first.");
-      return;
-    }
-
-    setUploading(true);
-    setMessage("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/calls/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await response.json();
-
-      setMessage(
-        `Audio uploaded successfully. Call ID: ${data.id}`
-      );
-
-      setFile(null);
-    } catch (error) {
-      console.error(error);
-      setMessage("Failed to upload audio.");
-    } finally {
-      setUploading(false);
-    }
-  };
+  if (checking) return <div className="shell notice">Loading...</div>
+  if (!user) return <Login onLogin={setUser} />
 
   return (
-    <div>
-      <h1>VoiceOps AI</h1>
+    <div className="shell">
+      <div className="topbar">
+        <div className="brand">
+          VoiceOps <span>AI</span>
+        </div>
+        <div className="topbar-right">
+          {user.email} ({user.role})
+          <button className="btn small" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </div>
 
-      <h2>Upload Customer Call</h2>
-
-      <input
-        type="file"
-        accept=".wav,.mp3,.mpeg,audio/*"
-        onChange={handleFileChange}
-      />
-
-      {file && (
-        <p>
-          Selected file: <strong>{file.name}</strong>
-        </p>
+      {openCall === null ? (
+        <Dashboard onOpen={setOpenCall} />
+      ) : (
+        <CallDetail id={openCall} onBack={() => setOpenCall(null)} />
       )}
-
-      <button
-        onClick={uploadAudio}
-        disabled={uploading}
-      >
-        {uploading ? "Uploading..." : "Upload Audio"}
-      </button>
-
-      {message && <p>{message}</p>}
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

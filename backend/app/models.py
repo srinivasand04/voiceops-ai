@@ -93,3 +93,75 @@ class Transcript(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
+
+class CallAnalysis(Base):
+    __tablename__ = "call_analyses"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    call_id: Mapped[int] = mapped_column(
+        ForeignKey("calls.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    roles: Mapped[dict] = mapped_column(JSON, nullable=False)
+    sentiment: Mapped[dict] = mapped_column(JSON, nullable=False)
+    intents: Mapped[dict] = mapped_column(JSON, nullable=False)
+    entities: Mapped[dict] = mapped_column(JSON, nullable=False)
+    keywords: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    action_items: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    summary_source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="rules",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+
+    password_hash: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="analyst",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
