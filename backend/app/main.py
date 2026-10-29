@@ -1,9 +1,13 @@
+import logging
+import os
+import threading
 from collections import Counter
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth import (
@@ -13,39 +17,62 @@ from app.auth import (
     require_admin,
     verify_password,
 )
-from app.database import engine, get_db
+from app.database import SessionLocal, engine, get_db
 from app.models import Base, Call, CallAnalysis, Transcript, User
 from app.services.analysis import analyze_turns
 from app.services.speaker_merge import merge_consecutive
+
+logger = logging.getLogger("voiceops")
 
 
 app = FastAPI(
     title="VoiceOps AI",
     description="AI-powered customer conversation intelligence platform",
-    version="0.7.0",
+    version="0.8.0",
 )
 
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+# No migration tool yet: add columns introduced after the first release.
+with engine.begin() as connection:
+    connection.execute(text("ALTER TABLE calls ADD COLUMN IF NOT EXISTS error TEXT"))
+    # A restart kills any background job, so calls left "processing" are failed.
+    connection.execute(
+        text(
+            "UPDATE calls SET status = 'failed', error = 'Interrupted by a server restart' "
+            "WHERE status = 'processing'"
+        )
+    )
 
-# CORS configuration
+
+# CORS configuration (comma separated list in CORS_ORIGINS)
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Audio storage directory
-AUDIO_DIR = Path(__file__).resolve().parents[2] / "data" / "audio"
+# Audio storage directory (override with AUDIO_DIR, e.g. a Docker volume)
+AUDIO_DIR = Path(
+    os.getenv("AUDIO_DIR") or Path(__file__).resolve().parents[2] / "data" / "audio"
+)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+# Whisper and pyannote are heavy: only one call is processed at a time.
+PROCESS_LOCK = threading.Lock()
 
 ALLOWED_EXTENSIONS = {".wav", ".mp3", ".mpeg"}
 
@@ -165,6 +192,7 @@ def _call_row(call: Call, analysis: CallAnalysis | None) -> dict:
         "id": call.id,
         "filename": call.filename,
         "status": call.status,
+        "error": call.error,
         "file_size": call.file_size,
         "created_at": call.created_at.isoformat(),
         "intent": None,
@@ -294,47 +322,72 @@ async def upload_call(
     }
 
 
-@app.post("/api/calls/{call_id}/process")
+def run_processing(call_id: int) -> None:
+    """Background job: transcribe, identify speakers, analyze, save."""
+    db = SessionLocal()
+
+    try:
+        call = db.get(Call, call_id)
+
+        if call is None:
+            return
+
+        try:
+            with PROCESS_LOCK:
+                # Imported here so the API starts (and tests run) without the ML stack.
+                from app.services.pipeline import analyze_audio
+
+                result = analyze_audio(call.file_path)
+
+            analysis = analyze_turns(result["turns"])
+
+            db.query(Transcript).filter(Transcript.call_id == call_id).delete()
+            db.add(
+                Transcript(
+                    call_id=call_id,
+                    text=result["text"],
+                    language=result["language"],
+                    language_probability=result["language_probability"],
+                    duration=result["duration"],
+                    segments=result["segments"],
+                )
+            )
+            _save_analysis(db, call_id, analysis)
+
+            call.status = "processed"
+            call.error = None
+        except Exception as error:
+            logger.exception("Processing call %s failed", call_id)
+            db.rollback()
+            call = db.get(Call, call_id)
+            call.status = "failed"
+            call.error = str(error)[:1000]
+
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/api/calls/{call_id}/process", status_code=202)
 def process_call(
     call_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Transcribe, identify speakers, then analyze the call."""
+    """Start processing in the background; poll GET /api/calls/{id} for status."""
     call = _get_call(db, call_id)
 
-    # Imported here so the API starts (and tests run) without the ML stack.
-    from app.services.pipeline import analyze_audio
+    if call.status == "processing":
+        raise HTTPException(status_code=409, detail="Call is already being processed")
 
     call.status = "processing"
+    call.error = None
     db.commit()
 
-    try:
-        result = analyze_audio(call.file_path)
-        analysis = analyze_turns(result["turns"])
-    except Exception as error:
-        call.status = "failed"
-        db.commit()
-        raise HTTPException(status_code=500, detail=str(error))
+    background_tasks.add_task(run_processing, call_id)
 
-    db.query(Transcript).filter(Transcript.call_id == call.id).delete()
-
-    db.add(
-        Transcript(
-            call_id=call.id,
-            text=result["text"],
-            language=result["language"],
-            language_probability=result["language_probability"],
-            duration=result["duration"],
-            segments=result["segments"],
-        )
-    )
-    _save_analysis(db, call.id, analysis)
-
-    call.status = "processed"
-    db.commit()
-
-    return {"call_id": call.id, "status": call.status, "turns": result["turns"]}
+    return {"call_id": call_id, "status": "processing"}
 
 
 @app.post("/api/calls/{call_id}/analyze")

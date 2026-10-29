@@ -4,6 +4,7 @@ export type CallRow = {
   id: number
   filename: string
   status: string
+  error: string | null
   file_size: number
   created_at: string
   intent: string | null

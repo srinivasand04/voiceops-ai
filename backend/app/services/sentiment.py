@@ -1,4 +1,5 @@
 """Lexicon based sentiment per turn and per speaker (VADER)."""
+import re
 from functools import lru_cache
 
 POSITIVE = 0.25
@@ -20,8 +21,25 @@ def label_for(score: float) -> str:
     return "neutral"
 
 
+# Politeness is scripted in support calls and says nothing about mood, so it is
+# removed before scoring (VADER would read "sorry to hear that" as positive).
+COURTESY = re.compile(
+    r"thank you(?: very much| so much)?|thanks|you(?:'re| are) welcome|"
+    r"(?:i(?:'m| am)|we(?:'re| are)) (?:very |so |really )?sorry(?: to hear that| for [a-z ]+)?|"
+    r"sorry to hear that|apologi[sz]e[sd]?(?: for [a-z ]+)?|(?:for|about) the inconvenience|"
+    r"have a (?:nice|good|great|lovely) day|good (?:morning|afternoon|evening)|please|"
+    r"(?:is there )?anything else(?: i can help (?:you )?with)?",
+    re.IGNORECASE,
+)
+
+
 def score_text(text: str) -> float:
-    return round(_analyzer().polarity_scores(text)["compound"], 3)
+    cleaned = COURTESY.sub(" ", text)
+
+    if not re.search(r"[A-Za-z]{2}", cleaned):
+        return 0.0
+
+    return round(_analyzer().polarity_scores(cleaned)["compound"], 3)
 
 
 def analyze_sentiment(turns: list[dict], roles: dict[str, str]) -> dict:

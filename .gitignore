@@ -41,3 +41,5 @@ Thumbs.db
 
 # Temporary files
 *.tmp
+# Model cache (downloaded)
+data/hf_cache/

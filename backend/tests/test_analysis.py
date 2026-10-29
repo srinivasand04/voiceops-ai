@@ -88,3 +88,11 @@ def test_full_analysis_without_llm_key(monkeypatch):
     assert result["intents"]["primary"] == "delivery_delay"
     assert "ORD1045" in result["summary"]
     assert any("refund" in item.lower() for item in result["action_items"])
+
+
+def test_courtesy_phrases_do_not_read_as_positive():
+    from app.services.sentiment import score_text
+
+    assert score_text("I'm sorry to hear that.") == 0.0
+    assert score_text("Thank you for calling. Have a nice day.") == 0.0
+    assert score_text("This is terrible, I am very angry.") < -0.25

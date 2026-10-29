@@ -54,6 +54,15 @@ export default function Dashboard({ onOpen }: Props) {
     load()
   }, [load])
 
+  // Keep the table fresh while any call is still being processed.
+  const anyProcessing = calls.some((c) => c.status === 'processing')
+
+  useEffect(() => {
+    if (!anyProcessing) return
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
+  }, [anyProcessing, load])
+
   const uploadAndProcess = async () => {
     if (!file) return
     setError('')
@@ -67,11 +76,25 @@ export default function Dashboard({ onOpen }: Props) {
         body,
       })
 
-      setBusy('Transcribing and analyzing (this can take a minute or two)...')
       await api(`/api/calls/${call.id}/process`, { method: 'POST' })
-
       setFile(null)
       if (input.current) input.current.value = ''
+      await load()
+
+      // Processing runs on the server in the background: poll until it ends.
+      const started = Date.now()
+      for (;;) {
+        const seconds = Math.round((Date.now() - started) / 1000)
+        setBusy(`Transcribing and analyzing... ${seconds}s (usually 1-2 minutes)`)
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+
+        const current = await api<CallRow>(`/api/calls/${call.id}`)
+        if (current.status === 'failed') {
+          throw new Error(current.error ?? 'Processing failed')
+        }
+        if (current.status === 'processed') break
+      }
+
       await load()
       onOpen(call.id)
     } catch (err) {
@@ -169,7 +192,10 @@ export default function Dashboard({ onOpen }: Props) {
                 <tr className="click" key={call.id} onClick={() => onOpen(call.id)}>
                   <td>{call.id}</td>
                   <td>{call.filename}</td>
-                  <td>{call.status}</td>
+                  <td title={call.error ?? undefined}>
+                    {call.status}
+                    {call.status === 'failed' && call.error ? ' ⚠' : ''}
+                  </td>
                   <td>{label(call.intent)}</td>
                   <td>
                     <SentimentPill value={call.customer_sentiment} />

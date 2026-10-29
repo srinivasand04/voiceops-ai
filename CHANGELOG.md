@@ -6,6 +6,18 @@ All notable changes to VoiceOps AI are documented here.
 
 
 
+## [v0.8.0] - Production Docker and background processing
+
+- `POST /api/calls/{id}/process` now returns 202 and runs in the background (one call at a time); the UI polls `GET /api/calls/{id}` for status; failures are stored in `calls.error`
+- Calls left "processing" by a restart are marked failed on startup
+- Backend Docker image now includes CPU PyTorch, pyannote and ffmpeg, runs as a non-root user, and has a healthcheck
+- `docker-compose.yml`: required `JWT_SECRET`, configurable ports, audio and model-cache volumes, frontend waits for a healthy backend
+- Config from environment: `CORS_ORIGINS`, `AUDIO_DIR`, `SQL_ECHO` (SQL logging is now off by default)
+- Sentiment ignores scripted courtesy phrases ("sorry to hear that", "thank you")
+- Added missing `scikit-learn` to `requirements.txt`; ML-only packages live in `requirements-ml.txt`
+- Tests no longer write to `data/audio` or leave rows in the database
+- `docs/PROGRESS.md` marks the current version and next steps
+
 ## [v0.7.0] - Analysis, dashboard and login
 
 - v0.3: per-turn and per-speaker sentiment (VADER), agent/customer role detection, customer sentiment trend
