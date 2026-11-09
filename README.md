@@ -1,188 +1,88 @@
-\# VoiceOps AI
+# VoiceOps AI
 
+AI-powered customer conversation intelligence. Upload a support call recording and get a
+speaker-labelled transcript, sentiment, call reason, key details, a summary and action items,
+all shown on a dashboard.
 
+**Status: v0.9.0** (see [CHANGELOG](CHANGELOG.md) and [docs/PROGRESS.md](docs/PROGRESS.md))
 
-AI-powered Customer Conversation Intelligence Platform.
+## How it works
 
+```
+Audio upload -> FastAPI -> Faster-Whisper (speech to text)
+             -> pyannote (who spoke when) -> agent/customer turns
+             -> sentiment, intent, entities, keywords
+             -> summary + action items (Claude if a key is set, rules otherwise)
+             -> PostgreSQL -> React dashboard
+```
 
+## Features
 
-VoiceOps AI transforms customer call recordings into structured conversation intelligence using Automatic Speech Recognition (ASR), NLP, machine learning, and LLM-based analysis.
+- Upload WAV/MP3 calls; processing runs in the background with live status
+- Speaker separation with agent/customer role detection
+- Sentiment per turn and per speaker, customer sentiment trend
+- Call reason (refund, delivery delay, ...), order IDs, products, durations, keywords
+- Summary and action items (optional Claude API)
+- Dashboard with stats, call table, chat-style transcript and sentiment timeline
+- Login with JWT; the first registered account is the admin
+- Docker setup (CPU-only), CI with automated tests
 
+## Tech stack
 
+Python, FastAPI, SQLAlchemy, PostgreSQL 17, Faster-Whisper, pyannote.audio, VADER,
+React, TypeScript, Vite, Docker Compose, GitHub Actions.
 
-\## Project Status
+## Run with Docker
 
+1. Copy `.env.example` to `.env` and set the passwords and `JWT_SECRET`.
+2. Add `HF_TOKEN` (accept the terms of `pyannote/speaker-diarization-community-1` on Hugging Face).
+3. Start everything:
 
+   ```powershell
+   docker compose up -d --build
+   ```
 
-Current version: \*\*v0.1.0 — ASR + PostgreSQL Baseline\*\*
+4. Open http://localhost:8080 (change ports with `FRONTEND_PORT` / `BACKEND_PORT`) and register.
 
+The first processed call downloads the models and is slow; later calls are faster.
 
+## Run locally for development
 
-\## Architecture
+```powershell
+docker compose up -d postgres
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt -r requirements-ml.txt
+python -m uvicorn app.main:app --reload
+```
 
+In a second terminal:
 
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-Audio Call
+Open http://localhost:5173. Run the backend tests with `cd backend; pytest -q`.
 
-&#x20;   ↓
+## Project layout
 
-Audio Upload
+```
+backend/    FastAPI app (app/), services (Whisper, pyannote, NLP), tests
+frontend/   React dashboard
+deploy/     Optional server deployment files (Caddy, setup script)
+docs/       PROGRESS.md (current version marker), DEPLOY.md (optional)
+```
 
-&#x20;   ↓
+## Optional: deploying to a server
 
-FastAPI
+Deployment files are included ([docs/DEPLOY.md](docs/DEPLOY.md)) but the project is
+intended to be run from GitHub; no live deployment is required.
 
-&#x20;   ↓
+## Limitations
 
-Faster-Whisper ASR
-
-&#x20;   ↓
-
-Timestamped Transcript
-
-&#x20;   ↓
-
-PostgreSQL
-
-&#x20;   ↓
-
-Speaker Diarization
-
-&#x20;   ↓
-
-Sentiment Analysis
-
-&#x20;   ↓
-
-Intent Detection
-
-&#x20;   ↓
-
-Entities \& Keywords
-
-&#x20;   ↓
-
-LLM Summary
-
-&#x20;   ↓
-
-Action Items
-
-&#x20;   ↓
-
-React Dashboard
-
-
-
-\## Technology Stack
-
-
-
-\### Backend
-
-\- Python
-
-\- FastAPI
-
-\- Pydantic
-
-\- SQLAlchemy
-
-\- Faster-Whisper
-
-
-
-\### Database
-
-\- PostgreSQL 17
-
-\- Docker
-
-\- Docker Compose
-
-
-
-\### Frontend
-
-\- React
-
-\- TypeScript
-
-\- Vite
-
-
-
-\### AI / ML
-
-\- Automatic Speech Recognition
-
-\- Speaker Diarization
-
-\- NLP
-
-\- Sentiment Analysis
-
-\- Intent Classification
-
-\- LLM-based Summarization
-
-
-
-\## Current Features
-
-
-
-\### v0.1.0
-
-
-
-\- Audio file upload
-
-\- WAV/MP3/MPEG validation
-
-\- Audio file storage
-
-\- PostgreSQL call metadata
-
-\- Faster-Whisper transcription
-
-\- Language detection
-
-\- Timestamped transcription segments
-
-\- Transcript persistence in PostgreSQL
-
-
-
-\## Project Structure
-
-
-
-```text
-
-Voice\_AI/
-
-├── backend/
-
-│   ├── app/
-
-│   ├── test\_whisper.py
-
-│   └── .venv/
-
-├── frontend/
-
-├── data/
-
-├── .env
-
-├── .env.example
-
-├── .gitignore
-
-├── CHANGELOG.md
-
-├── docker-compose.yml
-
-└── README.md
-
+- Sentiment and intents are rule/lexicon based
+- Whisper `small` can mishear identifiers (order IDs are corrected)
+- Processing uses CPU, so a call takes about a minute or more

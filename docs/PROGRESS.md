@@ -5,9 +5,9 @@
 
 ## Marker
 
-**Current version: v0.9.0 - Cloud deployment and monitoring (FILES READY, server not created yet)**
-**Next: create the server and run deploy/server-setup.sh (see docs/DEPLOY.md), then v1.0**
-**Pushed to GitHub: v0.8.0 (bb15b2d), CI green**
+**Current version: v0.9.0 - complete as a GitHub project (live deployment skipped by choice)**
+**Next: v1.0.0 - polish and release (security review, restrict sign-ups, screenshots in README)**
+**Pushed to GitHub: yes, CI green**
 
 | Version | Goal | Status |
 |---|---|---|
@@ -19,7 +19,7 @@
 | v0.6 | React dashboard | DONE |
 | v0.7 | Login and users | DONE |
 | v0.8 | Production Docker, background processing, config cleanup | DONE |
-| v0.9 | Cloud deployment and monitoring | IN PROGRESS (code ready; needs a server) |
+| v0.9 | Deployment files and monitoring endpoint | DONE (files only; no live server by choice) |
 | v1.0 | Production-ready release | PLANNED |
 
 ## v0.8 scope
@@ -37,8 +37,8 @@
 - [x] `deploy/server-setup.sh` one-command server setup and updates (builds on the server, no image registry)
 - [x] `GET /api/health/ready` readiness check (tests the DB) and request logging
 - [x] `docs/DEPLOY.md` step-by-step guide, backups, security checklist
-- [ ] Server created, DNS pointed, app live over HTTPS (needs the owner: account, payment, domain)
-- [ ] Uptime monitor added on `/api/health/ready`
+- [-] Live server: skipped by choice, the project stays on GitHub
+- [-] Uptime monitor: skipped (no live server)
 
 ## How to run everything in Docker
 
