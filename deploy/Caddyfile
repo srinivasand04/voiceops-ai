@@ -1,0 +1,22 @@
+# Caddy gets and renews a free HTTPS certificate for {$DOMAIN} automatically.
+{$DOMAIN} {
+	encode gzip
+
+	# Audio uploads and slow API calls go through the frontend's nginx.
+	request_body {
+		max_size 100MB
+	}
+
+	reverse_proxy frontend:80 {
+		transport http {
+			response_header_timeout 300s
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

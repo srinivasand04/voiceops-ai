@@ -6,6 +6,13 @@ All notable changes to VoiceOps AI are documented here.
 
 
 
+## [v0.9.0] - Deployment and monitoring (in progress)
+
+- `docker-compose.prod.yml` with Caddy (automatic HTTPS), private database and backend, log rotation
+- `deploy/server-setup.sh` installs Docker, adds swap, clones the repo, generates secrets and starts the stack
+- `GET /api/health/ready` readiness probe (checks the database) and request logging
+- `docs/DEPLOY.md` deployment, monitoring and backup guide
+
 ## [v0.8.0] - Production Docker and background processing
 
 - `POST /api/calls/{id}/process` now returns 202 and runs in the background (one call at a time); the UI polls `GET /api/calls/{id}` for status; failures are stored in `calls.error`

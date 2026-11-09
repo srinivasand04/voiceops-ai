@@ -1,0 +1,47 @@
+# Production overlay. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Only Caddy is reachable from the internet (ports 80/443, automatic HTTPS).
+# The database, backend and frontend stay on the private Docker network.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    ports: !reset []
+    logging: *logging
+
+  backend:
+    ports: !reset []
+    logging: *logging
+    environment:
+      CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
+
+  frontend:
+    ports: !reset []
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: voiceops-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

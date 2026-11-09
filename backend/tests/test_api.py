@@ -26,3 +26,9 @@ def test_health():
 
     assert data["status"] == "healthy"
     assert data["service"] == "backend"
+
+def test_ready_checks_database():
+    response = client.get("/api/health/ready")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"

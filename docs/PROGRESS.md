@@ -5,9 +5,9 @@
 
 ## Marker
 
-**Current version: v0.8.0 - Production Docker + background processing (DONE, awaiting your verification)**
-**Next: v0.9.0 - Cloud deployment and monitoring**
-**Last verified checkpoint: v0.7.0 (commit 9d2c96d)**
+**Current version: v0.9.0 - Cloud deployment and monitoring (FILES READY, server not created yet)**
+**Next: create the server and run deploy/server-setup.sh (see docs/DEPLOY.md), then v1.0**
+**Pushed to GitHub: v0.8.0 (bb15b2d), CI green**
 
 | Version | Goal | Status |
 |---|---|---|
@@ -18,8 +18,8 @@
 | v0.5 | Summary and action items | DONE |
 | v0.6 | React dashboard | DONE |
 | v0.7 | Login and users | DONE |
-| v0.8 | Production Docker, background processing, config cleanup | DONE (verify) |
-| v0.9 | Cloud deployment and monitoring | NEXT |
+| v0.8 | Production Docker, background processing, config cleanup | DONE |
+| v0.9 | Cloud deployment and monitoring | IN PROGRESS (code ready; needs a server) |
 | v1.0 | Production-ready release | PLANNED |
 
 ## v0.8 scope
@@ -30,6 +30,15 @@
 - [x] Backend Docker image includes torch (CPU), pyannote, ffmpeg and runs as non-root
 - [x] docker-compose: healthchecks, model cache mount, required JWT secret
 - [x] Verified end to end inside containers
+
+## v0.9 scope
+
+- [x] `docker-compose.prod.yml` (Caddy auto-HTTPS, private DB/backend, log rotation)
+- [x] `deploy/server-setup.sh` one-command server setup and updates (builds on the server, no image registry)
+- [x] `GET /api/health/ready` readiness check (tests the DB) and request logging
+- [x] `docs/DEPLOY.md` step-by-step guide, backups, security checklist
+- [ ] Server created, DNS pointed, app live over HTTPS (needs the owner: account, payment, domain)
+- [ ] Uptime monitor added on `/api/health/ready`
 
 ## How to run everything in Docker
 

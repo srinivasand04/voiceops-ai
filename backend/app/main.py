@@ -1,10 +1,11 @@
 import logging
 import os
 import threading
+import time
 from collections import Counter
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -22,6 +23,7 @@ from app.models import Base, Call, CallAnalysis, Transcript, User
 from app.services.analysis import analyze_turns
 from app.services.speaker_merge import merge_consecutive
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("voiceops")
 
 
@@ -101,6 +103,34 @@ def health():
         "status": "healthy",
         "service": "backend",
     }
+
+
+@app.get("/api/health/ready")
+def ready(db: Session = Depends(get_db)):
+    """Readiness probe for uptime monitors: also checks the database."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    return {"status": "ready", "service": "backend", "version": app.version}
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    started = time.perf_counter()
+    response = await call_next(request)
+
+    if request.url.path not in ("/health", "/api/health/ready"):
+        logger.info(
+            "%s %s -> %s (%.0f ms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            (time.perf_counter() - started) * 1000,
+        )
+
+    return response
 
 
 # ---------------------------------------------------------------- auth
